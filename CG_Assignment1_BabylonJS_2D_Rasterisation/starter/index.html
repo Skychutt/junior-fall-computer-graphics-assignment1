@@ -1,0 +1,24 @@
+  <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CG Assignment 1 — 2D Rasterisation</title>
+  <link rel="stylesheet" href="src/style.css">
+</head>
+<body>
+  <div id="toolbar">
+    <strong>CG Assignment 1 — 2D Rasterisation</strong>
+    <button data-mode="explicit">Explicit Lines</button>
+    <button data-mode="implicit">Implicit Lines</button>
+    <button data-mode="halfplane">Half-plane Triangles</button>
+    <button data-mode="barycentric">Barycentric Triangles</button>
+    <button data-mode="house">Final House</button>
+    <span id="status">Mode: Explicit Lines</span>
+  </div>
+
+  <canvas id="renderCanvas"></canvas>
+  <script src="https://cdn.babylonjs.com/babylon.js"></script>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>

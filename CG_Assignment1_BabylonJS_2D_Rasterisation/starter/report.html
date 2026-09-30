@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Assignment 1 Report — 2D Rasterisation</title>
+  <style>
+    @page { size: A4; margin: 15mm 15mm 16mm; }
+    body {
+      font-family: "Times New Roman", Times, "SimSun", "Microsoft YaHei", serif;
+      font-size: 11pt;
+      line-height: 1.35;
+      color: #111;
+      max-width: 180mm;
+      margin: 0 auto;
+    }
+    h1 { font-size: 16pt; text-align: center; margin: 0 0 4px; }
+    .meta { text-align: center; font-size: 11pt; margin: 0 0 12px; }
+    h2 { font-size: 13pt; margin: 12px 0 4px; }
+    p { margin: 0 0 7px; text-align: justify; }
+    figure { margin: 6px 0 10px; page-break-inside: avoid; }
+    img { width: 100%; height: auto; border: 1px solid #ccc; }
+    figcaption { font-size: 10pt; margin-top: 3px; }
+    code { font-family: Consolas, monospace; font-size: 10pt; }
+  </style>
+</head>
+<body>
+  <h1>2D Rasterisation: Lines, Triangles and a House</h1>
+  <p class="meta">COMP 30020 Computer Graphics — Assignment 1<br>
+  Name: 楚天泽</p>
+
+  <h2>A. Theory</h2>
+  <p>An explicit line is <em>y = mx + b</em>, with <em>m = (y<sub>1</sub> − y<sub>0</sub>) / (x<sub>1</sub> − x<sub>0</sub>)</em> and <em>b = y<sub>0</sub> − mx<sub>0</sub></em>. It is easy to sample, but the slope is undefined when <em>x<sub>1</sub> = x<sub>0</sub></em>. If <em>|m| &gt; 1</em>, one step in <em>x</em> jumps more than one row, so a continuous line needs a sample on the other axis as well.</p>
+  <p>The implicit form <em>F(x, y) = Ax + By + C = 0</em> does not choose a dependent variable. Here <em>A = y<sub>0</sub> − y<sub>1</sub></em>, <em>B = x<sub>1</sub> − x<sub>0</sub></em> and <em>C = x<sub>0</sub>y<sub>1</sub> − x<sub>1</sub>y<sub>0</sub></em>. The perpendicular distance is <em>d = |F| / √(A<sup>2</sup> + B<sup>2</sup>)</em>, and the sign of <em>F</em> says which side of the directed line a point is on. A pixel is drawn when <em>d</em> is below a small tolerance. The same side test, repeated for three edges, fills a triangle.</p>
+  <p>The edge function <em>E<sub>AB</sub>(P) = (B<sub>x</sub> − A<sub>x</sub>)(P<sub>y</sub> − A<sub>y</sub>) − (B<sub>y</sub> − A<sub>y</sub>)(P<sub>x</sub> − A<sub>x</sub>)</em> is twice the signed area of <em>ABP</em>. <em>P</em> is inside when <em>E<sub>BC</sub>(P)</em>, <em>E<sub>CA</sub>(P)</em> and <em>E<sub>AB</sub>(P)</em> share the sign of the area of <em>ABC</em>. Dividing those areas by the area of <em>ABC</em> gives the barycentric weights <em>α</em>, <em>β</em> and <em>γ</em>. They sum to 1, and <em>P</em> is inside when all three are non-negative. Colour is the linear blend <em>α C<sub>A</sub> + β C<sub>B</sub> + γ C<sub>C</sub></em>.</p>
+
+  <h2>B. Algorithms</h2>
+  <p>Explicit lines. A vertical segment is drawn by stepping in <em>y</em> at fixed <em>x</em>. Otherwise the code compares <em>|Δy|</em> with <em>|Δx|</em>. A shallow line is ordered so <em>x</em> increases, and each integer <em>x</em> receives <em>y = mx + b</em>. A steep line is ordered in <em>y</em>, and <em>x = (y − b) / m</em> comes from the same equation. <code>setPixel</code> rounds to the nearest pixel. The branch only chooses which axis to sample.</p>
+  <p>Implicit lines scan the segment’s bounding box, padded by one pixel. Pixel <em>(x, y)</em> is set when <em>|Ax + By + C| ≤ 0.75 √(A<sup>2</sup> + B<sup>2</sup>)</em>. A tolerance of 0.5 px, as often quoted in the lectures, can skip a diagonal pixel that lies just outside that limit, so 0.75 px is used. The box clips the infinite line to a segment.</p>
+  <p>Triangle fill scans the bounding box at pixel centres <em>(x+0.5, y+0.5)</em>. If the area is positive, a centre is covered when all three edge functions are at least zero; a negative area reverses the tests, so either winding is valid. Barycentric fill uses the same ratios. Any negative weight rejects the pixel; otherwise RGB is the weighted vertex colour. Rectangles are two triangles. The sun, clouds and canopy are triangle fans, so they use the same rasteriser. Mullions, rails and roof edges are implicit segments. Babylon.js only displays the framebuffer.</p>
+
+  <h2>C. Comparison</h2>
+  <p>The explicit equation is the easiest to read, because it is <em>y = mx + b</em>. It is the least convenient to rasterise. Vertical lines need a separate loop, steep lines break up unless the major axis changes, and the slope becomes huge near the vertical.</p>
+  <p>The implicit test uses one expression for every direction. Implementation is a double loop, which is short but visits many empty pixels. <em>F</em> scales with segment length, so the comparison must use distance rather than raw <em>F</em>. The tolerance also makes some diagonals slightly thicker than a one-pixel explicit sample.</p>
+  <p>Barycentric weights are less obvious, because a point is a mixture of three vertices. They are the most useful for triangles: the same numbers accept or reject a pixel and interpolate colour.</p>
+
+  <h2>D. Results</h2>
+  <p>Experiment 1 compares orientation. Figures 1 and 2 contain the same six segments: shallow (black), horizontal (red), diagonal (blue), steep (green), vertical (purple) and a second steep line (dark grey). Explicit sampling along <em>y</em> keeps the steep and vertical lines continuous; without that branch they would be dotted. The implicit image follows the same geometry. Its diagonals are sometimes one pixel thicker, which is the 0.75 px tolerance. Axis-aligned lines stay one pixel wide, because the next pixel is a full pixel away from the line.</p>
+  <figure>
+    <img src="assets/explicit.png" alt="Explicit line rasterisation">
+    <figcaption>Figure 1. Explicit lines across shallow, steep, horizontal, vertical and diagonal cases.</figcaption>
+  </figure>
+  <figure>
+    <img src="assets/implicit.png" alt="Implicit line rasterisation">
+    <figcaption>Figure 2. The same segments under the implicit distance test.</figcaption>
+  </figure>
+  <p>Experiment 2 is triangle coverage (Figure 3). The blue triangle has a horizontal edge and a vertical edge. The orange triangle is acute. The green triangle is obtuse at its lower vertex. None of these shapes needs a special fill rule. A pixel centre is painted only when it is inside every edge half-plane. Axis-aligned edges use the same test. Implicit lines then outline each triangle.</p>
+  <figure>
+    <img src="assets/halfplane.png" alt="Half-plane triangle fill">
+    <figcaption>Figure 3. Half-plane fill of a right triangle, an acute triangle and an obtuse triangle.</figcaption>
+  </figure>
+  <p>Experiment 3 uses strongly different vertex colours (Figure 4): red, green and blue on the left, and yellow, magenta and cyan on the right. At a vertex one weight is 1 and the others are 0, so the colour matches that vertex. Around the centroid each weight is near one third, and the left triangle turns a dark mix of the three primaries. On an edge the opposite weight is 0, so only the two endpoints are blended. The change is smooth because each weight is linear in <em>x</em> and <em>y</em>.</p>
+  <figure>
+    <img src="assets/barycentric.png" alt="Barycentric colour interpolation">
+    <figcaption>Figure 4. Colour interpolated from three different vertex colours.</figcaption>
+  </figure>
+  <p>Figure 5 is the house required by the final task: a rectangular body, a triangular roof, a door, windows, a chimney and straight decorative lines. Walls and the roof are half-plane triangles. Sky, glass and the sun use barycentric colour. The Babylon.js plane in <code>main.js</code> only holds the texture; it is not the house geometry.</p>
+  <figure>
+    <img src="assets/house.png" alt="Final house scene">
+    <figcaption>Figure 5. The house produced by the line and triangle rasterisers.</figcaption>
+  </figure>
+
+  <h2>E. Reflection</h2>
+  <p>Evaluating <em>y = mx + b</em> answers which row belongs to a given column. Rasterisation asks a different question: does this pixel belong to the primitive? The explicit form cannot even ask that of a vertical line, and a steep line answers it only after the axes are swapped. A triangle is not a function of <em>x</em> at all until it has been split into edges. An implicit test answers the coverage question directly, for every line direction, and three such tests answer it for a triangle. Barycentric coordinates are those half-plane distances normalised by the triangle area. They therefore reject outside pixels and, for inside pixels, weight the vertex colours in the same step. The explicit equation never builds those weights, which is why implicit and barycentric forms are the ones that carry a rasteriser from lines to shaded triangles.</p>
+</body>
+</html>
