@@ -1,13 +1,16 @@
+// Arrange the demos and house using coordinates and colours; the rasterisers compute their pixels.
 import {
     WIDTH, HEIGHT, createFramebuffer, clear, rgb,
     drawLineExplicit, drawLineImplicit,
     drawTriangleHalfPlane, drawTriangleBarycentric
-} from "./rasterization.js";
+} from "./rasterization.js?v=lecture4";
 
+// Get the display canvas and create the Babylon.js engine and scene.
 const canvas = document.getElementById("renderCanvas");
 const engine = new BABYLON.Engine(canvas, true);
 const scene = new BABYLON.Scene(engine);
 
+// An orthographic camera faces the display plane to show the entire pixel image.
 const camera = new BABYLON.FreeCamera(
     "camera",
     new BABYLON.Vector3(0, 0, -3),
@@ -20,12 +23,14 @@ camera.orthoRight = 1;
 camera.orthoTop = 1;
 camera.orthoBottom = -1;
 
+// This plane only displays the completed image; house components are rasterised in software.
 const plane = BABYLON.MeshBuilder.CreatePlane(
     "framebuffer",
     { width: 2, height: 2 },
     scene
 );
 
+// The dynamic texture receives framebuffer colours and is displayed through the material.
 const material = new BABYLON.StandardMaterial("framebufferMaterial", scene);
 material.backFaceCulling = false;
 const texture = new BABYLON.DynamicTexture(
@@ -38,23 +43,31 @@ material.diffuseTexture = texture;
 material.emissiveTexture = texture;
 plane.material = material;
 
+// frame stores pixel colours; mode selects which demonstration to draw.
 const frame = createFramebuffer();
 let mode = new URLSearchParams(location.search).get("mode") || "explicit";
+if (!["explicit", "implicit", "halfplane", "barycentric", "house"].includes(mode)) {
+    mode = "explicit";
+}
 
+// Create a point object: pt(10,20) is equivalent to { x:10, y:20 }.
 function pt(x, y) {
     return { x, y };
 }
 
+// Supply vertices in boundary order and split a convex quadrilateral along a-c into two triangles.
 function fillQuad(a, b, c, d, color) {
     drawTriangleHalfPlane(frame, a, b, c, color);
     drawTriangleHalfPlane(frame, a, c, d, color);
 }
 
+// Split into the same two triangles, using barycentric interpolation of the vertex colours.
 function fillQuadColors(a, b, c, d, ca, cb, cc, cd) {
     drawTriangleBarycentric(frame, a, b, c, ca, cb, cc);
     drawTriangleBarycentric(frame, a, c, d, ca, cc, cd);
 }
 
+// x and y specify the top-left corner; w and h define its size. Fill using the four corners.
 function fillRect(x, y, w, h, color) {
     fillQuad(
         pt(x, y),
@@ -65,6 +78,7 @@ function fillRect(x, y, w, h, color) {
     );
 }
 
+// Draw only the rectangle outline by connecting its top, right, bottom and left edges.
 function strokeRect(x, y, w, h, color) {
     drawLineImplicit(frame, x, y, x + w, y, color);
     drawLineImplicit(frame, x + w, y, x + w, y + h, color);
@@ -72,29 +86,15 @@ function strokeRect(x, y, w, h, color) {
     drawLineImplicit(frame, x, y + h, x, y, color);
 }
 
-function fillEllipse(cx, cy, rx, ry, inner, outer) {
-    const steps = Math.max(16, Math.round((rx + ry) * 0.45));
-    for (let i = 0; i < steps; i++) {
-        const a0 = (i / steps) * Math.PI * 2;
-        const a1 = ((i + 1) / steps) * Math.PI * 2;
-        drawTriangleBarycentric(
-            frame,
-            pt(cx, cy),
-            pt(cx + Math.cos(a0) * rx, cy + Math.sin(a0) * ry),
-            pt(cx + Math.cos(a1) * rx, cy + Math.sin(a1) * ry),
-            inner,
-            outer,
-            outer
-        );
-    }
-}
-
+// Connect all three vertices to outline the triangle with the supplied colour.
 function strokeTriangle(A, B, C, color) {
     drawLineImplicit(frame, A.x, A.y, B.x, B.y, color);
     drawLineImplicit(frame, B.x, B.y, C.x, C.y, color);
     drawLineImplicit(frame, C.x, C.y, A.x, A.y, color);
 }
 
+// drawLine is a function parameter: use either rasteriser with identical coordinates for comparison.
+// The six segments demonstrate shallow, horizontal, diagonal, steep and vertical orientations.
 function drawComparisonLines(drawLine) {
     drawLine(frame, 36, 78, 604, 132, rgb(35, 35, 35));
     drawLine(frame, 36, 190, 604, 190, rgb(186, 52, 48));
@@ -104,6 +104,7 @@ function drawComparisonLines(drawLine) {
     drawLine(frame, 78, 450, 210, 250, rgb(40, 40, 40));
 }
 
+// Fill right, acute and obtuse triangles, then outline them to demonstrate different edge orientations.
 function drawHalfPlaneDemo() {
     const right = [pt(40, 36), pt(220, 36), pt(40, 220)];
     const acute = [pt(300, 48), pt(590, 210), pt(250, 250)];
@@ -118,6 +119,7 @@ function drawHalfPlaneDemo() {
     strokeTriangle(obtuse[0], obtuse[1], obtuse[2], rgb(28, 78, 48));
 }
 
+// Use three distinct vertex colours per triangle to show smooth barycentric colour interpolation.
 function drawBarycentricDemo() {
     const red = rgb(220, 48, 48);
     const green = rgb(48, 186, 82);
@@ -140,6 +142,8 @@ function drawBarycentricDemo() {
     strokeTriangle(D, E, F, rgb(40, 40, 40));
 }
 
+// Draw from background to foreground; later pixel writes cover earlier colours.
+// Build the house and scenery from lines and triangles, splitting rectangles into triangles too.
 function drawHouse() {
     const skyTop = rgb(118, 182, 222);
     const skyHorizon = rgb(255, 214, 168);
@@ -150,28 +154,49 @@ function drawHouse() {
     const roof = rgb(176, 68, 54);
     const roofLine = rgb(112, 40, 36);
 
+    // Two shaded triangles form the sky, blending blue at the top into a warm horizon colour.
     fillQuadColors(
         pt(0, 0), pt(WIDTH - 1, 0), pt(WIDTH - 1, 352), pt(0, 352),
         skyTop, skyTop, skyHorizon, skyHorizon
     );
-
-    for (let i = 0; i < 10; i++) {
-        const angle = -Math.PI * 0.85 + i * (Math.PI * 0.7 / 9);
-        const x0 = 86 + Math.cos(angle) * 48;
-        const y0 = 78 + Math.sin(angle) * 48;
-        const x1 = 86 + Math.cos(angle) * 78;
-        const y1 = 78 + Math.sin(angle) * 78;
+    // Connect twelve boundary vertices to one centre to form twelve triangles making a faceted sun.
+    const sunCenter = pt(86, 78);
+    const sunEdge = [
+        pt(86, 44), pt(103, 49), pt(115, 61), pt(120, 78),
+        pt(115, 95), pt(103, 107), pt(86, 112), pt(69, 107),
+        pt(57, 95), pt(52, 78), pt(57, 61), pt(69, 49)
+    ];
+    const sunColors = [
+        rgb(255, 230, 126), rgb(255, 212, 92), rgb(255, 192, 64),
+        rgb(248, 171, 48), rgb(255, 186, 62), rgb(242, 157, 40),
+        rgb(255, 178, 54), rgb(255, 199, 76), rgb(255, 218, 102),
+        rgb(255, 232, 138), rgb(255, 222, 110), rgb(255, 240, 160)
+    ];
+    // Arrays start at zero; % wraps the last vertex's next index back to the first to close the polygon.
+    // Use pale yellow at the centre and different outer colours to give the faces light and shade.
+    for (let i = 0; i < sunEdge.length; i++) {
+        drawTriangleBarycentric(
+            frame, sunCenter, sunEdge[i], sunEdge[(i + 1) % sunEdge.length],
+            rgb(255, 248, 184), sunColors[i], sunColors[i]
+        );
+    }
+    // Each group gives a ray's x0, y0, x1 and y1; draw these segments with the explicit rasteriser.
+    const rays = [
+        [86, 38, 86, 20], [86, 118, 86, 136],
+        [46, 78, 28, 78], [126, 78, 144, 78],
+        [48, 40, 34, 26], [124, 40, 138, 26],
+        [48, 116, 34, 130], [124, 116, 138, 130]
+    ];
+    for (const [x0, y0, x1, y1] of rays) {
         drawLineExplicit(frame, x0, y0, x1, y1, rgb(255, 196, 96));
     }
-    fillEllipse(86, 78, 40, 40, rgb(255, 246, 196), rgb(255, 176, 62));
+    // Build the clouds from overlapping rectangles.
+    fillRect(198, 72, 96, 22, rgb(236, 242, 246));
+    fillRect(222, 56, 46, 24, rgb(255, 252, 250));
+    fillRect(452, 100, 96, 22, rgb(236, 242, 246));
+    fillRect(480, 82, 40, 26, rgb(255, 252, 250));
 
-    fillEllipse(214, 82, 26, 18, rgb(255, 252, 250), rgb(236, 242, 246));
-    fillEllipse(246, 74, 34, 24, rgb(255, 252, 250), rgb(236, 242, 246));
-    fillEllipse(280, 84, 24, 16, rgb(255, 252, 250), rgb(236, 242, 246));
-    fillEllipse(470, 108, 22, 15, rgb(255, 252, 250), rgb(236, 242, 246));
-    fillEllipse(500, 98, 30, 20, rgb(255, 252, 250), rgb(236, 242, 246));
-    fillEllipse(534, 110, 20, 14, rgb(255, 252, 250), rgb(236, 242, 246));
-
+    // Draw distant hills as two flat-colour triangles, then cover their lower parts with the grass.
     drawTriangleHalfPlane(frame, pt(0, 338), pt(250, 268), pt(430, 348), rgb(138, 176, 132));
     drawTriangleHalfPlane(frame, pt(220, 352), pt(520, 286), pt(639, 346), rgb(112, 164, 118));
 
@@ -180,7 +205,8 @@ function drawHouse() {
         grassTop, grassTop, grassBottom, grassBottom
     );
 
-    fillEllipse(320, 372, 168, 16, rgb(78, 132, 64), rgb(78, 132, 64));
+    // Draw a quadrilateral ground shadow, followed by a path that widens downwards and its side edges.
+    fillQuad(pt(160, 366), pt(476, 366), pt(496, 384), pt(144, 384), rgb(78, 132, 64));
 
     fillQuad(
         pt(286, 360), pt(362, 360), pt(408, 470), pt(236, 470),
@@ -189,27 +215,30 @@ function drawHouse() {
     drawLineImplicit(frame, 286, 360, 236, 470, rgb(154, 120, 78));
     drawLineImplicit(frame, 362, 360, 408, 470, rgb(154, 120, 78));
 
+    // Place two fence sections behind the house before drawing the walls.
     drawFence(18, 154, 318);
     drawFence(486, 622, 318);
+    // Use a rectangular trunk and three triangular foliage layers, drawn from bottom to top.
+    fillRect(100, 282, 16, 82, rgb(112, 74, 46));
+    drawTriangleHalfPlane(frame, pt(52, 322), pt(164, 322), pt(108, 242), rgb(46, 108, 54));
+    drawTriangleHalfPlane(frame, pt(62, 288), pt(154, 288), pt(108, 220), rgb(72, 146, 70));
+    drawTriangleHalfPlane(frame, pt(76, 254), pt(140, 254), pt(108, 204), rgb(108, 164, 72));
 
-    fillRect(96, 286, 24, 78, rgb(112, 74, 46));
-    fillEllipse(108, 268, 40, 34, rgb(46, 108, 54), rgb(72, 146, 70));
-    fillEllipse(78, 286, 28, 24, rgb(58, 124, 60), rgb(86, 156, 74));
-    fillEllipse(142, 284, 30, 26, rgb(52, 116, 58), rgb(96, 164, 78));
-    fillEllipse(112, 242, 24, 20, rgb(150, 190, 96), rgb(108, 164, 72));
-
+    // Draw the chimney behind the roof, using horizontal and vertical segments for brick joints.
     fillRect(392, 132, 36, 78, rgb(166, 84, 68));
     for (let y = 146; y <= 196; y += 16) {
         drawLineImplicit(frame, 392, y, 428, y, rgb(124, 58, 50));
     }
     drawLineImplicit(frame, 410, 132, 410, 200, rgb(124, 58, 50));
 
+    // Build the wall from a large rectangle, narrow highlight and shadow strips, and a foundation below.
     fillRect(176, 232, 288, 132, wall);
     fillRect(430, 232, 34, 132, wallShade);
     fillRect(176, 232, 14, 132, rgb(255, 248, 236));
     fillRect(168, 354, 304, 16, rgb(148, 128, 110));
     drawLineImplicit(frame, 168, 354, 472, 354, rgb(110, 92, 78));
 
+    // Define three roof vertices, fill the triangle, then add its outline and decorative lines.
     const roofA = pt(154, 246);
     const roofB = pt(486, 246);
     const roofC = pt(320, 104);
@@ -218,15 +247,18 @@ function drawHouse() {
     drawLineExplicit(frame, 210, 214, 320, 128, rgb(214, 120, 98));
     drawLineExplicit(frame, 430, 214, 320, 128, rgb(214, 120, 98));
 
+    // Add the chimney cap and three rectangular smoke blocks after the roof so they remain visible.
     fillRect(384, 118, 52, 16, rgb(124, 58, 50));
     strokeRect(384, 118, 52, 16, rgb(86, 40, 36));
-    fillEllipse(404, 96, 10, 8, rgb(226, 230, 234), rgb(206, 212, 216));
-    fillEllipse(418, 78, 14, 11, rgb(236, 240, 242), rgb(214, 220, 224));
-    fillEllipse(430, 58, 18, 13, rgb(244, 246, 248), rgb(220, 226, 230));
+    fillRect(400, 88, 12, 14, rgb(206, 212, 216));
+    fillRect(413, 66, 16, 16, rgb(220, 226, 230));
+    fillRect(428, 42, 20, 18, rgb(236, 240, 242));
 
+    // Reuse the window function to place one window on each side of the wall.
     drawWindow(214, 262, 58, 50);
     drawWindow(368, 262, 58, 50);
 
+    // Build the attic window from an outer frame, shaded glass and horizontal/vertical dividers.
     fillRect(308, 156, 28, 34, rgb(255, 248, 238));
     fillQuadColors(
         pt(312, 160), pt(332, 160), pt(332, 186), pt(312, 186),
@@ -235,21 +267,25 @@ function drawHouse() {
     drawLineImplicit(frame, 322, 160, 322, 186, rgb(255, 248, 238));
     drawLineImplicit(frame, 312, 173, 332, 173, rgb(255, 248, 238));
 
+    // Build the door from a filled rectangle, three rectangular outlines and a square handle.
     fillRect(292, 268, 64, 96, rgb(92, 58, 36));
     strokeRect(292, 268, 64, 96, rgb(64, 38, 24));
     strokeRect(302, 278, 44, 36, rgb(64, 38, 24));
     strokeRect(302, 320, 44, 32, rgb(64, 38, 24));
-    fillEllipse(344, 318, 5, 5, rgb(232, 190, 78), rgb(186, 140, 48));
+    fillRect(340, 314, 8, 8, rgb(232, 190, 78));
 
+    // Two rectangles of different widths form the steps.
     fillRect(286, 356, 76, 8, rgb(168, 150, 128));
     fillRect(276, 364, 96, 8, rgb(150, 132, 112));
 
-    fillEllipse(470, 338, 28, 16, rgb(56, 120, 58), rgb(86, 154, 72));
-    fillEllipse(498, 346, 22, 14, rgb(64, 132, 62), rgb(104, 168, 78));
-    fillEllipse(132, 348, 18, 12, rgb(186, 72, 78), rgb(214, 96, 86));
-    fillEllipse(154, 356, 14, 10, rgb(214, 170, 54), rgb(232, 196, 78));
-    fillEllipse(118, 358, 12, 9, rgb(214, 112, 64), rgb(232, 146, 86));
+    // Use triangles for shrubs beside the house and small rectangles for coloured ground decorations.
+    drawTriangleHalfPlane(frame, pt(444, 354), pt(492, 354), pt(468, 320), rgb(56, 120, 58));
+    drawTriangleHalfPlane(frame, pt(474, 360), pt(522, 360), pt(498, 334), rgb(104, 168, 78));
+    fillRect(118, 344, 22, 14, rgb(186, 72, 78));
+    fillRect(144, 352, 20, 12, rgb(232, 196, 78));
+    fillRect(104, 358, 14, 10, rgb(232, 146, 86));
 
+    // Repeat short grass segments, skipping the path; remainders vary their heights and positions deterministically.
     for (let x = 12; x < 628; x += 9) {
         if (x > 230 && x < 420) continue;
         const height = 7 + ((x * 13) % 8);
@@ -258,10 +294,12 @@ function drawHouse() {
         drawLineExplicit(frame, x, base, x + ((x % 7) - 3), base - height, color);
     }
 
+    // Two diagonal segments form a simplified distant bird.
     drawLineExplicit(frame, 340, 42, 356, 34, rgb(48, 58, 72));
     drawLineExplicit(frame, 352, 30, 370, 44, rgb(48, 58, 72));
 }
 
+// Reusable window: draw the frame, shaded glass, cross-shaped dividers and the sill below.
 function drawWindow(x, y, w, h) {
     fillRect(x - 3, y - 3, w + 6, h + 6, rgb(255, 250, 242));
     strokeRect(x - 3, y - 3, w + 6, h + 6, rgb(150, 116, 84));
@@ -274,6 +312,7 @@ function drawWindow(x, y, w, h) {
     fillRect(x - 4, y + h + 3, w + 8, 6, rgb(168, 132, 96));
 }
 
+// Draw two horizontal rails, then place a rectangular post every 22 pixels with a shadow edge.
 function drawFence(x0, x1, y) {
     drawLineImplicit(frame, x0, y + 10, x1, y + 10, rgb(214, 206, 190));
     drawLineImplicit(frame, x0, y + 24, x1, y + 24, rgb(214, 206, 190));
@@ -283,6 +322,7 @@ function drawFence(x0, x1, y) {
     }
 }
 
+// Redraw once: clear the image, draw the selected mode, upload the pixels and update the status text.
 function demo() {
     clear(frame);
 
@@ -306,17 +346,21 @@ function demo() {
         drawHouse();
     }
 
+    // Geometry is already rasterised in frame; copy the whole image without using Canvas shape-drawing methods.
     const ctx = texture.getContext();
     const image = ctx.createImageData(WIDTH, HEIGHT);
     image.data.set(frame.data);
     ctx.putImageData(image, 0, 0);
     texture.update();
 
+    // Find the selected mode's button and display its text as the current mode name.
     const active = document.querySelector(`button[data-mode="${mode}"]`);
     document.getElementById("status").textContent =
         "Mode: " + (active ? active.textContent : mode);
 }
 
+// Attach click handlers to all five buttons; dataset.mode reads each HTML data-mode attribute.
+// The arrow function runs when clicked, changes the mode and regenerates the pixel image.
 document.querySelectorAll("button[data-mode]").forEach(button => {
     button.addEventListener("click", () => {
         mode = button.dataset.mode;
@@ -324,8 +368,10 @@ document.querySelectorAll("button[data-mode]").forEach(button => {
     });
 });
 
+// Render the existing texture each frame; software rasterisation runs only on initial load or a mode change.
 engine.runRenderLoop(() => scene.render());
 
+// Resize the display when the window changes size; the final demo() draws the initial image.
 window.addEventListener("resize", () => engine.resize());
 
 demo();

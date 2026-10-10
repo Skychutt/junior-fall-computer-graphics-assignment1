@@ -4,4 +4,4 @@ A JavaScript 2D software rasteriser displayed with Babylon.js. The implementatio
 
 The implementation and report are in [the starter directory](CG_Assignment1_BabylonJS_2D_Rasterisation/starter/). The original starter archive and assignment materials are included for context.
 
-To run the demo, open a terminal in `CG_Assignment1_BabylonJS_2D_Rasterisation/starter`, run `python -m http.server 8000`, and visit `http://localhost:8000`.
+To run the demo, open a terminal in `CG_Assignment1_BabylonJS_2D_Rasterisation/starter`, run `python3 -m http.server 8000`, and visit `http://localhost:8000`.

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CG Assignment 1 — 2D Rasterisation</title>
-  <link rel="stylesheet" href="src/style.css">
+  <link rel="stylesheet" href="src/style.css?v=lecture4">
 </head>
 <body>
   <div id="toolbar">
@@ -18,7 +18,12 @@
   </div>
 
   <canvas id="renderCanvas"></canvas>
-  <script src="https://cdn.babylonjs.com/babylon.js"></script>
-  <script type="module" src="src/main.js"></script>
+  <script>
+    if (location.protocol === "file:") {
+      document.getElementById("status").textContent = "Start a local server: python3 -m http.server 8000, then open http://localhost:8000";
+    }
+  </script>
+  <script src="vendor/babylon.js"></script>
+  <script type="module" src="src/main.js?v=lecture4"></script>
 </body>
 </html>
